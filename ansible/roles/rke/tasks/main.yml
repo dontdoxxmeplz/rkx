@@ -1,0 +1,42 @@
+#- name: "[RKE] - Gathering facts."
+#  setup:
+
+- name: "[RKE] - SSH-Keys exchanges."
+  include_tasks: ssh-exchanges.yml
+  vars:
+    hostname: "{{ node.address|trim|ansible.netcommon.ipaddr }}"
+    username: "{{ cluster.user }}"
+    password: "{{ cluster.password }}"
+  with_items:
+    - "{{ cluster.nodes|default([]) }}"
+  loop_control:
+    loop_var: node
+
+- name: "[RKE] - Install pre-requisites on the nodes."
+  include: nodes-prerequisites.yml
+  delegate_to: "{{ node.address|trim|ansible.netcommon.ipaddr }}"
+  delegate_facts: true
+  with_items:
+    - "{{ cluster.nodes|default([]) }}"
+  loop_control:
+    loop_var: node
+
+- name: "[RKE] - Create workspace directory: $HOME/data"
+  file:
+    path: "{{ output_dir|default('~') }}/data"
+    state: directory
+    recurse: True
+
+- name: "[RKE] - Starting the RKE process."
+  template:
+    src: templates/cluster.yml.j2
+    dest: "{{ output_dir|default('~') }}/data/cluster.yml"
+    force: True
+
+- name: "[RKE] UP/REMOVE"
+  shell: "{{ 'rke up' if devops_command|default('')|trim != 'remove' else 'rke remove --force' }}"
+  args:
+    chdir: "{{ output_dir|default('~') }}/data"
+  environment:
+    KUBECONFIG: "{{ output_dir|default('~') }}/data/kube_config_cluster.yml"
+    RKE_CONFIG: "{{ output_dir|default('~') }}/data/cluster.yml"

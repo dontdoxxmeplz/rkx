@@ -1,0 +1,172 @@
+---
+
+- name: "Check if stamp file exists."
+  find:
+    paths: /etc
+    pattern: 'ansible_update_stamp.tmp'
+    age: -24h
+  register: update_stamp
+
+- name: "[REBOOT] - Check if /var/run/reboot-required exists [First time]."
+  stat:
+    path: /var/run/reboot-required
+  register: reboot_required_file_1
+
+- name: "[PREREQUISITES]"
+  vars:
+    ansible_ssh_user: "{{ cluster.user }}"
+    ansible_ssh_private_key_file: ~/.ssh/id_rsa
+    ansible_sudo_user: root
+    ansible_sudo_pass: "{{ cluster.password }}"
+    ansible_become_pass: "{{ cluster.password }}"
+    ansible_become_user: "{{ cluster.user }}"
+    ansible_become: yes
+    become: yes
+    ansible_become_sudo: sudo
+  block:
+    - name: "[PREREQUISITES] - Disable and stop MCcafee Anti-virus during the updates."
+      mccafee_agent:
+        state: stopped
+        enabled: False
+
+    - name: "[PREREQUISITES] - Ensure groups are there."
+      group:
+        name: "{{ item|trim }}"
+        state: present
+      with_items: [ 'docker', 'sudo', 'users', 'daemon', 'root', 'ubuntu' ]
+
+    - name: "[PREREQUISITES] - Add the user if it doesnt exists."
+      user:
+        name: "{{ cluster.user }}"
+        shell: /bin/bash
+        groups: docker,sudo,users,root,daemon
+        append: yes
+
+    - name: "[PREREQUISITES] - Add the rancher to the sudoer file"
+      copy:
+        dest: "/etc/sudoers.d/12-{{ cluster.user }}"
+        mode: "0440"
+        content: |
+          {{ cluster.user }} ALL=(ALL) NOPASSWD: ALL
+
+    - name: "[PREREQUISITES] - Clean packages manager."
+      shell: |
+        sudo rm -rf /var/lib/apt/lists/* \
+        && sudo apt -y update \
+        && sudo apt -y clean \
+        && sudo apt -y autoremove
+
+    - name: "[PREREQUISITES] - Installing packages."
+      package:
+        name: "{{ item|trim }}"
+        state: latest
+      with_items: [ 'curl', 'git', 'grub-common', 'grub2', 'nfs-common', 'nfs-kernel-server', 'docker.io', 'python3', 'ntp' ]
+
+    - name: "[PREREQUISITES] - Disable IPv6 with sysctl."
+      sysctl: name={{ item|trim }} value=1 state=present reload=yes
+      with_items: [net.ipv6.conf.all.disable_ipv6, net.ipv6.conf.default.disable_ipv6, net.ipv6.conf.lo.disable_ipv6]
+
+    - name: "[PREREQUISITES] - Enable Shared Mounts."
+      ansible.builtin.lineinfile:
+        path: /lib/systemd/system/docker.service
+        insertafter: "^[Service]"
+        line: MountFlags=shared
+        regexp: "^MountFlags="
+
+    - name: "[PREREQUISITES] - Disable SWAP (1/2)"
+      shell: swapoff -a
+
+    - name: "[PREREQUISITES] - Disable SWAP (2/2)"
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*?\sswap\s+sw\s+.*)$'
+        replace: '# \1'
+
+    - name: "[PREREQUISITES] - Enable and Start services"
+      ansible.builtin.systemd:
+        name: "{{ item|trim }}"
+        state: 'started'
+        enabled: True
+      with_items: [ 'nfs-server.service', 'docker', 'ntp', 'containerd' ]
+
+    - name: "[PREREQUISITES] - Disable auto security updates."
+      ansible.builtin.systemd:
+        name: "{{ item|trim }}"
+        state: 'stopped'
+        enabled: False
+      with_items: [ 'apt-daily-upgrade.timer', 'apt-daily-upgrade.service', 'apt-daily.timer', 'apt-daily.service', snapd.socket, snapd.service ]
+
+    - name: "[PREREQUISITES] - Disable auto security updates."
+      shell: |
+        echo APT::Periodic::Update-Package-Lists "0"; > /etc/apt/apt.conf.d/20auto-upgrades
+        echo APT::Periodic::Download-Upgradeable-Packages "0"; >> /etc/apt/apt.conf.d/20auto-upgrades
+        echo APT::Periodic::AutocleanInterval "0"; >> /etc/apt/apt.conf.d/20auto-upgrades
+        echo APT::Periodic::Unattended-Upgrade "0"; >> /etc/apt/apt.conf.d/20auto-upgrades
+
+    - name: "[PREREQUISITES] - Disable auto security updates."
+      apt:
+        name: "{{ item|trim|string }}"
+        state: absent
+      with_items: ["snapd", "unattended-upgrades"]
+
+    - name: "[PREREQUISITES] - Disable auto security updates."
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 api.snapcraft.io"
+        regexp: "^127.0.0.1 api.snapcraft.io"
+
+    - name: "[PREREQUISITES] - Disable firewall."
+      shell: sudo ufw disable
+
+    - block:
+        - name: "[PREREQUISITES] - Disable IPv6 in grub."
+          become: True
+          vars:
+            ipv6_quote: (["']?)                                # group 1
+            ipv6_before: ((?:(?<!ipv6.disable=)[^"'])*?)\s*    # group 2
+            ipv6_before_simpler: ([^"']*?)\s*                  # group 2
+            ipv6_existing: ((?:ipv6.disable=[^\s"']+\s*?)*)    # group 3
+            ipv6_after: ((?:(?<!ipv6.disable=)[^"'])*)         # group 4
+            ipv6_after_simpler: ([^"']*?)                      # group 4
+            ipv6_comments: (\s*#.*|)                           # group 5
+            ipv6_regexp: ^GRUB_CMDLINE_LINUX={{ ipv6_quote + ipv6_before_simpler + ipv6_existing + ipv6_after }}\1{{ ipv6_comments }}$
+            ipv6_replace: GRUB_CMDLINE_LINUX=\1\2\4 ipv6.disable=1\1\5
+            ipv6_replace_debug: 2)\2 3)\3 4)\4 5)\5 {{ ipv6_replace }}
+          lineinfile:
+            path: /etc/default/grub
+            regexp: "{{ ipv6_regexp }}"
+            line: "{{ ipv6_replace }}"
+            backrefs: yes
+            create: no
+            mode: '0644'
+            backup: yes
+
+        - name: grub2-mkconfig
+          become: True
+          command: /usr/sbin/update-grub2
+      when: >
+        not (ansible_virtualization_type is defined and
+              (ansible_virtualization_type == "lxc" or ansible_virtualization_type == "docker")
+            )
+
+    - name: "[STAMP] - Create stamp."
+      ansible.builtin.file:
+        path: /etc/ansible_update_stamp.tmp
+        state: touch
+        mode: '0644'
+        force: yes
+
+    - name: "[PREREQUISITES] - Enable and start MCcafee Anti-virus after installing requirements."
+      mccafee_agent:
+        state: started
+        enabled: True
+
+    - name: "[REBOOT] - Check if /var/run/reboot-required exists. [Second time]"
+      stat:
+        path: /var/run/reboot-required
+      register: reboot_required_file_2
+
+    - name: "[REBOOT] - Reboot if required"
+      reboot:
+      when: reboot_required_file_2.stat.exists == True
+  when: update_stamp.files | length < 1 or reboot_required_file_1.stat.exists == True

@@ -1,0 +1,63 @@
+---
+
+cluster_name: rancher-{{ cluster.environment }}
+
+addon_job_timeout: 600
+ssh_key_path: ~/.ssh/id_rsa
+ignore_docker_version: false
+docker_socket: /var/run/docker.sock
+
+nodes:
+{% if cluster.nodes|length > 0 %}
+{% for node in cluster.nodes %}
+  - address: {{ node.address }}
+    hostname_overwrite: {{ node.hostname }}
+    user: {{ cluster.user }}
+{% if ('worker' in node.hostname|lower or 
+      'slave' in node.hostname|lower or 
+      'runner' in node.hostname|lower or 
+      'agent' in node.hostname|lower) %}
+    role: [worker]
+{% elif ('master' in node.hostname|lower or 
+        'control' in node.hostname|lower or 
+        'ctrl' in node.hostname|lower or 
+        'plane' in node.hostname|lower) %}
+    role: [controlplane, etcd]
+{% elif ('lab' in node.hostname|lower or 
+        'test' in node.hostname|lower or 
+        'cluster' in node.hostname|lower) %}
+    role: [controlplane, etcd, worker]
+{% endif %}
+{% endfor %}
+{% endif %}
+
+authorization:
+    mode: rbac
+
+services:
+  etcd:
+    snapshot: {{ cluster.etcd_snapshots|default(false) }}
+    creation: 12h
+    retention: 24h
+
+{% if devops_command == 'bare' %}
+network:
+  plugin: none
+{% endif %}
+
+ingress:
+{% if cluster.ingress_controller != 'nginx' %}
+  provider: none
+{% else %}
+  provider: nginx
+{% endif -%}
+{% if devops_command == 'bare' %}
+  network_mode: none
+{% elif devops_command == 'test' %}
+  network_mode: hostPort
+{% else %}
+  network_mode: hostNetwork
+{% endif -%}
+
+
+

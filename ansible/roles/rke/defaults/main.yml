@@ -1,0 +1,14 @@
+output_dir: '~'
+
+cluster:
+  domain: example.com
+  environment: dev
+  user: admin
+  password: admin
+  ingress_controller: nginx
+  etcd_snapshots: true
+  nodes:
+    - address: 10.0.0.40
+      hostname: rkedev-master-1
+    - address: 10.0.0.65
+      hostname: rkedev-worker-1

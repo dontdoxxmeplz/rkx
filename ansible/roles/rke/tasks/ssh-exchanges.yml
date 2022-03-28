@@ -1,0 +1,10 @@
+---
+
+- name: "Inject SSH public key into remote system"
+  ssh_copy_id:
+    hostname: "{{ hostname|trim }}"
+    username: "{{ username|trim }}"
+    password: "{{ password|trim }}"
+    ssh_public_key: "{{ lookup('env', 'HOME')|default('~') }}/.ssh/id_rsa.pub"
+    hetzner_storagebox: 'False'
+    ssh_port: '22'
