@@ -32,8 +32,8 @@ If the installation is successfull and you didnt mount the `/root/data` director
 cluster:
   domain: example.com
   environment: dev
-  user: anon
-  password: 'anon'
+  user: 'admin'
+  password: 'admin'
   ingress_controller: 'nginx'
   etcd_snapshots: True
   nodes:
@@ -56,7 +56,7 @@ $ docker run -it reallyseriousbus1ness0/rkx:latest lab "$(cat config.yml|base64 
 **Uninstall Kubernetes RKE from the nodes.**
 
 ```bash
-$ docker run -it reallyseriousbus1ness0/rkx:latest lab "$(cat config.yml|base64 -w 0)"
+$ docker run -it reallyseriousbus1ness0/rkx:latest remove "$(cat config.yml|base64 -w 0)"
 ```
 
 ---
