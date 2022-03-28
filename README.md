@@ -1,4 +1,4 @@
-# RKX
+# [RKX](https://github.com/dontdoxxmeplz/rkx)
 Another opinionated Kubernetes installer.
 
 ## Description
@@ -16,7 +16,7 @@ If the installation is successfull and you didnt mount the `/root/data` director
 ***Getting started***
 
 ```bash
-$ docker pull --name rkx reallyseriousbus1ness0/rkx:latest
+$ docker pull --name rkx reallyseriousbus1ness0/rkx:[tag]
 ```
 
 ***Output***
@@ -50,15 +50,13 @@ cluster:
 **Install a standard Kubernetes RKE.**
 
 ```bash
-$ docker run -it reallyseriousbus1ness0/rkx:latest lab "$(cat config.yml|base64 -w 0)"
+$ docker run -it reallyseriousbus1ness0/rkx:[tag] lab "$(cat config.yml|base64 -w 0)"
 ```
 
 **Uninstall Kubernetes RKE from the nodes.**
 
 ```bash
-$ docker run -it reallyseriousbus1ness0/rkx:latest remove "$(cat config.yml|base64 -w 0)"
+$ docker run -it reallyseriousbus1ness0/rkx:[tag] remove "$(cat config.yml|base64 -w 0)"
 ```
 
 ---
-
-
