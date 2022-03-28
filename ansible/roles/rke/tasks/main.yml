@@ -47,6 +47,6 @@
   when: devops_command|default('')|trim != 'remove'
 
 - debug:
-    msg: "{{ reg_rke_task }}"
+    msg: "{{ reg_rke_task.stdout }}"
   tags: [print_action]
   when: devops_command|default('')|trim == 'remove'

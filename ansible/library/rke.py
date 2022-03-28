@@ -71,13 +71,12 @@ def run_module():
     result['message'] = "Returned message"
 
     # exit with results
-	try:
-      module.exit_json(**result)
-	except:
-      result['message'] = 'Error message'
-      module.fail_json(msg=result['message'])
-      module.exit_json(**result)
-	  
+    try:
+        module.exit_json(**result)
+    except Exception as err:
+        result['message'] = 'Error message'
+        module.fail_json(msg=result['message'])
+        module.exit_json(**result)
 
 def main():
     run_module()
