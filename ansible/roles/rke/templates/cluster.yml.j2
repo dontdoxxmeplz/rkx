@@ -3,29 +3,27 @@
 cluster_name: rancher-{{ cluster.environment }}
 
 addon_job_timeout: 600
-ssh_key_path: ~/.ssh/id_rsa
+ssh_key_path: "{{ lookup('env', 'HOME') }}/data/id_rsa"
 ignore_docker_version: false
 docker_socket: /var/run/docker.sock
 
 nodes:
 {% if cluster.nodes|length > 0 %}
 {% for node in cluster.nodes %}
-  - address: {{ node.address }}
-    hostname_overwrite: {{ node.hostname }}
+  - address: {{ node.address|trim|ansible.netcommon.ipaddr }}
+    hostname_overwrite: {{ node.hostname|trim }}
     user: {{ cluster.user }}
 {% if ('worker' in node.hostname|lower or 
       'slave' in node.hostname|lower or 
       'runner' in node.hostname|lower or 
-      'agent' in node.hostname|lower) %}
+      'agent' in node.hostname|lower) and cluster.nodes|length >= 3 %}
     role: [worker]
 {% elif ('master' in node.hostname|lower or 
         'control' in node.hostname|lower or 
         'ctrl' in node.hostname|lower or 
-        'plane' in node.hostname|lower) %}
+        'plane' in node.hostname|lower) and cluster.nodes|length >= 3 %}
     role: [controlplane, etcd]
-{% elif ('lab' in node.hostname|lower or 
-        'test' in node.hostname|lower or 
-        'cluster' in node.hostname|lower) %}
+{% else %}
     role: [controlplane, etcd, worker]
 {% endif %}
 {% endfor %}

@@ -39,3 +39,8 @@
   environment:
     KUBECONFIG: "{{ lookup('env', 'HOME') }}/data/kube_config_cluster.yml"
     RKE_CONFIG: "{{ lookup('env', 'HOME') }}/data/cluster.yml"
+
+- name: get the content of the if the ssh key pairs files and put them into facts
+  debug:
+    msg: "{{ lookup('file', lookup('env', 'HOME') + '/data/kube_config_cluster.yml', rstrip=False) | b64encode }}"
+  when: devops_command|default('')|trim != 'remove'
