@@ -1,6 +1,4 @@
 - hosts: localhost
   gather_facts: True
-  vars_files:
-    - /tmp/values.yml
   roles:
     - role: rke

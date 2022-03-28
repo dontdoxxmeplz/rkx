@@ -1,10 +1,21 @@
 ---
 
+- name: Generate an OpenSSH rsa keypair with a different size (2048 bits)
+  community.crypto.openssh_keypair:
+    path: "{{ lookup('env', 'HOME') }}/data/id_rsa"
+    size: 4096
+    force: false
+
+- name: get the content of the if the ssh key pairs files and put them into facts
+  set_fact:
+    pub_ssh_key: "{{ lookup('file', lookup('env', 'HOME') + '/data/id_rsa.pub') }}"
+    priv_ssh_key: "{{ lookup('file', lookup('env', 'HOME') + '/data/id_rsa') }}"
+
 - name: "Inject SSH public key into remote system"
   ssh_copy_id:
-    hostname: "{{ hostname|trim }}"
+    hostname: "{{ hostname|trim|ansible.netcommon.ipaddr }}"
     username: "{{ username|trim }}"
     password: "{{ password|trim }}"
-    ssh_public_key: "{{ lookup('env', 'HOME')|default('~') }}/.ssh/id_rsa.pub"
+    ssh_public_key: "{{ lookup('env', 'HOME') }}/data/id_rsa.pub"
     hetzner_storagebox: 'False'
     ssh_port: '22'
