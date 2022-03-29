@@ -25,6 +25,10 @@
       register: reboot_required_file_1
   
     - block:
+        - debug:
+            msg: "STARTING NODES INTEGRITY CHECK PROCESS..."
+          tags: [print_action]
+
         - name: "[PREREQUISITES] - Disable and stop MCcafee Anti-virus during the updates."
           mccafee_agent:
             state: stopped

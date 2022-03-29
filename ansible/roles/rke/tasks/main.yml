@@ -15,7 +15,7 @@
   loop_control:
     loop_var: node
 
-- name: "[RKE] - Install pre-requisites on the nodesk."
+- name: "[RKE] - Install pre-requisites on the nodes."
   include_tasks: nodes-prerequisites.yml
   args:
     apply:
@@ -26,11 +26,16 @@
   loop_control:
     loop_var: node
 
-- name: "[RKE] - Starting the RKE process."
+- name: "[RKE] - Generate the cluster.yml file."
   template:
     src: templates/cluster.yml.j2
     dest: "{{ lookup('env', 'HOME') }}/data/cluster.yml"
     force: True
+
+- debug:
+    msg:
+      - "STARTING THE {{ devops_command|upper }} TASK..."
+  tags: [print_action]
 
 - name: "[RKE] UP/REMOVE"
   shell: "{{ 'rke up' if devops_command|default('')|trim != 'remove' else 'rke remove --force' }}"
@@ -42,7 +47,10 @@
   register: reg_rke_task
 
 - debug:
-    msg: "{{ lookup('file', lookup('env', 'HOME') + '/data/kube_config_cluster.yml', rstrip=False) | b64encode }}"
+    msg:
+      - "↓↓ RESULTING BASE64 ENCODED KUBECONFIG ↓↓"
+      - "{{ lookup('file', lookup('env', 'HOME') + '/data/kube_config_cluster.yml', rstrip=False) | b64encode }}"
+      - "↑↑ RESULTING BASE64 ENCODED KUBECONFIG ↑↑"
   tags: [print_action]
   when: devops_command|default('')|trim != 'remove'
 
