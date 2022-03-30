@@ -46,12 +46,18 @@
     RKE_CONFIG: "{{ lookup('env', 'HOME') }}/data/cluster.yml"
   register: reg_rke_task
 
-- debug:
-    msg:
-      - "↓↓ RESULTING BASE64 ENCODED KUBECONFIG ↓↓"
-      - "{{ lookup('file', lookup('env', 'HOME') + '/data/kube_config_cluster.yml', rstrip=False) | b64encode }}"
-      - "↑↑ RESULTING BASE64 ENCODED KUBECONFIG ↑↑"
-  tags: [print_action]
+- block:
+    - debug:
+        msg: "↓↓ RESULTING BASE64 ENCODED KUBECONFIG ↓↓"
+      tags: [print_action]
+
+    - debug:
+        msg: "{{ lookup('file', lookup('env', 'HOME') + '/data/kube_config_cluster.yml', rstrip=False) | b64encode }}"
+      tags: [print_action]
+
+    - debug:
+        msg: "↑↑ RESULTING BASE64 ENCODED KUBECONFIG ↑↑"
+      tags: [print_action]
   when: devops_command|default('')|trim != 'remove'
 
 - debug:
